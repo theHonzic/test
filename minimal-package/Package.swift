@@ -12,11 +12,51 @@ let package = Package(
             targets: ["MinimalPackage"]
         ),
     ],
+    dependencies: [
+        // UI
+        .package(url: "https://github.com/airbnb/lottie-spm.git", .upToNextMajor(from: "4.5.2")),
+        .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
+        
+        // OpenAPI
+        .package(url: "https://github.com/apple/swift-openapi-generator.git", .upToNextMajor(from: "1.10.3")),
+        .package(url: "https://github.com/apple/swift-openapi-runtime.git", .upToNextMajor(from: "1.8.3")),
+        .package(url: "https://github.com/apple/swift-openapi-urlsession.git", .upToNextMajor(from: "1.2.0")),
+        
+        // Persistence
+        .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
+        
+        // Monitoring
+        .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.40.0"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
-        .target(name: "MinimalPackage",path: "Sources/MinimalPackage"),
-        .target(name: "MinimalPackageCore", path: "Sources/MinimalPackageCore"),
-        .target(name: "MinimalPackageFeature", path: "Sources/MinimalPackageFeature"),
+        .target(
+            name: "MinimalPackage",
+            dependencies: [
+                .target(name: "MinimalPackageCore"),
+                .target(name: "MinimalPackageFeature")
+            ],
+            path: "Sources/MinimalPackage"
+        ),
+        .target(
+            name: "MinimalPackageCore",
+            dependencies: [
+                .product(name: "Sentry", package: "sentry-cocoa")
+            ],
+            path: "Sources/MinimalPackageCore"
+        ),
+        .target(
+            name: "MinimalPackageFeature",
+            dependencies: [
+                .product(name: "LottieSPM", package: "lottie-spm"),
+                .product(name: "QRCode", package: "qrcode"),
+                .product(name: "OpenAPIGeneratorRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
+                .product(name: "KeychainSwift", package: "keychain-swift"),
+                .target(name: "MinimalPackageCore")
+            ],
+            path: "Sources/MinimalPackageFeature"
+        ),
     ]
 )
