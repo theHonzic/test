@@ -20,17 +20,20 @@ let package = Package(
         // UI
         .package(url: "https://github.com/airbnb/lottie-spm.git", .upToNextMajor(from: "4.5.2")),
         .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
-        
+
         // OpenAPI
         .package(url: "https://github.com/apple/swift-openapi-generator.git", .upToNextMajor(from: "1.10.3")),
         .package(url: "https://github.com/apple/swift-openapi-runtime.git", .upToNextMajor(from: "1.8.3")),
         .package(url: "https://github.com/apple/swift-openapi-urlsession.git", .upToNextMajor(from: "1.2.0")),
-        
+
         // Persistence
         .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
-        
+
         // Monitoring
         .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.40.0"),
+
+        // Documentation
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.4.3"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
