@@ -5,6 +5,10 @@ import PackageDescription
 
 let package = Package(
     name: "MinimalPackage",
+    platforms: [
+        .macOS(.v10_15),
+        .iOS(.v13)
+    ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
@@ -49,9 +53,9 @@ let package = Package(
         .target(
             name: "MinimalPackageFeature",
             dependencies: [
-                .product(name: "LottieSPM", package: "lottie-spm"),
+                .product(name: "Lottie", package: "lottie-spm"),
                 .product(name: "QRCode", package: "qrcode"),
-                .product(name: "OpenAPIGeneratorRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
                 .product(name: "KeychainSwift", package: "keychain-swift"),
                 .target(name: "MinimalPackageCore")
