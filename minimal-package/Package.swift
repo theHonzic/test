@@ -20,7 +20,7 @@ let package = Package(
     dependencies: [
         // UI
         .package(url: "https://github.com/airbnb/lottie-spm.git", .upToNextMajor(from: "4.5.2")),
-        .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
+        // .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
 
         // OpenAPI
         .package(url: "https://github.com/apple/swift-openapi-generator.git", .upToNextMajor(from: "1.10.3")),
@@ -28,7 +28,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-urlsession.git", .upToNextMajor(from: "1.2.0")),
 
         // Persistence
-        .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
+        // .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
 
         // Monitoring
         .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.40.0"),
@@ -58,10 +58,10 @@ let package = Package(
             name: "MinimalPackageFeature",
             dependencies: [
                 .product(name: "Lottie", package: "lottie-spm"),
-                .product(name: "QRCode", package: "qrcode"),
+                // .product(name: "QRCode", package: "qrcode"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
-                .product(name: "KeychainSwift", package: "keychain-swift"),
+                // .product(name: "KeychainSwift", package: "keychain-swift"),
                 .target(name: "MinimalPackageCore")
             ],
             path: "Sources/MinimalPackageFeature"
