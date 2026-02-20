@@ -8,6 +8,7 @@
 # Usage:
 #   ./scripts/generate-docs.sh              Build static docs into docs/
 #   ./scripts/generate-docs.sh --preview    Start live-reload preview server
+#   ./scripts/generate-docs.sh --serve      Build docs, then serve locally
 #
 # GitHub Pages URL:
 #   https://<user>.github.io/<repo>/documentation/minimalpackage
@@ -23,8 +24,11 @@ PACKAGE_DIR="$REPO_ROOT/minimal-package"
 DOCS_OUTPUT="$REPO_ROOT/docs"
 
 PREVIEW=false
+SERVE=false
 if [[ "${1:-}" == "--preview" ]]; then
     PREVIEW=true
+elif [[ "${1:-}" == "--serve" ]]; then
+    SERVE=true
 fi
 
 # ── Preflight ────────────────────────────────────────────────────────────────
@@ -85,3 +89,14 @@ swift package --package-path "$PACKAGE_DIR" \
 echo "==> Documentation written to $DOCS_OUTPUT"
 echo "    GitHub Pages URL: https://<user>.github.io/${HOSTING_BASE_PATH}/documentation/minimalpackage"
 echo "    Live preview:     $0 --preview"
+echo "    Local server:     $0 --serve"
+
+# ── Local server ─────────────────────────────────────────────────────────────
+
+if $SERVE; then
+    PORT="${2:-8000}"
+    echo ""
+    echo "==> Starting local server on http://localhost:${PORT}/${HOSTING_BASE_PATH}/documentation/minimalpackage"
+    echo "    Ctrl-C to stop"
+    python3 -m http.server "$PORT" -d "$DOCS_OUTPUT"
+fi
