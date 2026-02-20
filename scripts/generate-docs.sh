@@ -95,8 +95,17 @@ echo "    Local server:     $0 --serve"
 
 if $SERVE; then
     PORT="${2:-8000}"
+
+    # The static site's internal links use /<HOSTING_BASE_PATH>/... as the
+    # prefix (matching the GitHub Pages URL structure).  python3's http.server
+    # serves the given directory as "/", so we need to mount docs/ *under* the
+    # base-path directory so the URLs resolve correctly.
+    SERVE_ROOT="$(mktemp -d)"
+    ln -s "$DOCS_OUTPUT" "$SERVE_ROOT/$HOSTING_BASE_PATH"
+    trap 'rm -rf "$SERVE_ROOT"' EXIT
+
     echo ""
     echo "==> Starting local server on http://localhost:${PORT}/${HOSTING_BASE_PATH}/documentation/minimalpackage"
     echo "    Ctrl-C to stop"
-    python3 -m http.server "$PORT" -d "$DOCS_OUTPUT"
+    python3 -m http.server "$PORT" -d "$SERVE_ROOT"
 fi
