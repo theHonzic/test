@@ -30,13 +30,11 @@ TARGETS=("MinimalPackage")
 DESTINATIONS=(
     "generic/platform=iOS"
     "generic/platform=iOS Simulator"
-    "generic/platform=macOS"
 )
 
 DEST_SLUGS=(
     "iphoneos"
     "iphonesimulator"
-    "macosx"
 )
 
 # ── Preflight ────────────────────────────────────────────────────────────────
