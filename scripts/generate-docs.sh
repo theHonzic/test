@@ -44,7 +44,9 @@ swift package --package-path "$PACKAGE_DIR" resolve
 if $PREVIEW; then
     echo "==> Starting live preview server (Ctrl-C to stop)..."
     echo "    Watching for changes in Sources/"
-    # --disable-sandbox is required because the preview server binds a port
+    # --disable-sandbox is required because the preview server binds a port.
+    # preview-documentation only supports a single --target, so we preview
+    # the umbrella target. For full combined docs, use the static build.
     swift package --package-path "$PACKAGE_DIR" \
         --disable-sandbox \
         preview-documentation \
@@ -56,18 +58,25 @@ fi
 
 rm -rf "$DOCS_OUTPUT"
 
-echo "==> Generating DocC documentation for MinimalPackage..."
+# All targets whose documentation should be included.
+# Combined documentation merges symbol graphs from all targets into a single
+# navigable site. Internal targets (Core, Feature) do NOT need to be products.
+TARGETS=(MinimalPackage MinimalPackageCore MinimalPackageFeature)
+
+TARGET_FLAGS=()
+for t in "${TARGETS[@]}"; do
+    TARGET_FLAGS+=(--target "$t")
+done
+
+echo "==> Generating combined DocC documentation..."
+echo "    targets: ${TARGETS[*]}"
 echo "    hosting-base-path: /${HOSTING_BASE_PATH}"
 
-# Per the official swift-docc-plugin guide:
-#   --allow-writing-to-directory  grants the plugin sandbox permission to write
-#   --transform-for-static-hosting produces a directory servable as-is
-#   --hosting-base-path           sets the root path for relative links
-#   --disable-indexing            skips the LMDB index (not needed for static hosting)
 swift package --package-path "$PACKAGE_DIR" \
     --allow-writing-to-directory "$DOCS_OUTPUT" \
     generate-documentation \
-    --target MinimalPackage \
+    "${TARGET_FLAGS[@]}" \
+    --enable-experimental-combined-documentation \
     --disable-indexing \
     --transform-for-static-hosting \
     --hosting-base-path "$HOSTING_BASE_PATH" \
