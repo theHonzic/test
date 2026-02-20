@@ -52,6 +52,10 @@ echo ""
 
 # ── Archive each target for every platform ───────────────────────────────────
 
+# xcodebuild locates Package.swift via the working directory; all other paths
+# used below are absolute, so this cd does not affect them.
+cd "$PACKAGE_DIR"
+
 for target in "${TARGETS[@]}"; do
     echo "━━━ Archiving target: $target ━━━"
 
