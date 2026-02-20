@@ -1,0 +1,10 @@
+# Build artifacts (archive.sh output, XCFrameworks, zips)
+/build/
+
+# Xcode derived data cache (used by archive.sh for incremental builds)
+/.derivedData/
+
+# Generated documentation (created by generate-docs.sh, committed only on main)
+/docs/
+
+.DS_Store

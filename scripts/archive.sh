@@ -5,9 +5,13 @@
 # Builds XCFrameworks for every target in MinimalPackage and bundles them
 # into a single zip ready for GitHub Releases.
 #
+# Build intermediates are cached in .derivedData/ (gitignored) so
+# incremental rebuilds are fast. Only the final build/ output is
+# recreated each run.
+#
 # Output:
-#   build/MinimalPackage.xcframework.zip   – release artifact
-#   build/MinimalPackage.xcframework.zip.sha256  – checksum
+#   build/MinimalPackage.xcframework.zip          – release artifact
+#   build/MinimalPackage.xcframework.zip.sha256    – checksum
 #
 # Requirements: Xcode 15+
 
@@ -17,10 +21,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKAGE_DIR="$REPO_ROOT/minimal-package"
 BUILD_DIR="$REPO_ROOT/build"
+DERIVED_DATA="$REPO_ROOT/.derivedData"
 
-# Platforms to archive (scheme → destinations).
-# Each target that is part of the library must be archived separately
-# and then merged into one XCFramework.
 TARGETS=("MinimalPackage" "MinimalPackageCore" "MinimalPackageFeature")
 
 DESTINATIONS=(
@@ -39,13 +41,18 @@ DEST_SLUGS=(
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "Error: xcodebuild is not installed (requires Xcode)." >&2; exit 1; }
 
+# Clean final output but keep derived data cache for incremental builds
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
+mkdir -p "$DERIVED_DATA"
+
+echo "==> Derived data cache: $DERIVED_DATA"
+echo "    (delete .derivedData/ for a fully clean build)"
+echo ""
 
 # ── Archive each target for every platform ───────────────────────────────────
 
 for target in "${TARGETS[@]}"; do
-    echo ""
     echo "━━━ Archiving target: $target ━━━"
 
     FRAMEWORK_ARGS=()
@@ -57,11 +64,12 @@ for target in "${TARGETS[@]}"; do
 
         echo "  -> $dest"
         xcodebuild archive \
-            -workspace "$PACKAGE_DIR" \
             -scheme "$target" \
             -configuration Release \
             -destination "$dest" \
             -archivePath "$archive_path" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -clonedSourcePackagesDirPath "$DERIVED_DATA/SourcePackages" \
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
@@ -86,11 +94,11 @@ for target in "${TARGETS[@]}"; do
         -output "$xcf_path"
 
     echo "  -> Done: $xcf_path"
+    echo ""
 done
 
 # ── Bundle into a single zip ─────────────────────────────────────────────────
 
-echo ""
 echo "==> Creating release archive..."
 
 ZIP_NAME="MinimalPackage.xcframework.zip"
