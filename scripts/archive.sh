@@ -23,7 +23,9 @@ PACKAGE_DIR="$REPO_ROOT/minimal-package"
 BUILD_DIR="$REPO_ROOT/build"
 DERIVED_DATA="$REPO_ROOT/.derivedData"
 
-TARGETS=("MinimalPackage" "MinimalPackageCore" "MinimalPackageFeature")
+# Only archive products (library targets exposed in Package.swift products).
+# Internal targets (Core, Feature) are compiled into the product automatically.
+TARGETS=("MinimalPackage")
 
 DESTINATIONS=(
     "generic/platform=iOS"
@@ -79,10 +81,11 @@ for target in "${TARGETS[@]}"; do
             SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
             2>&1 | tail -3
 
-        # Locate the .framework inside the archive
-        fw_path="$archive_path.xcarchive/Products/usr/local/lib/${target}.framework"
-        if [ ! -d "$fw_path" ]; then
-            echo "Error: framework not found at $fw_path" >&2
+        # Locate the .framework inside the archive (path varies by Xcode version)
+        fw_path="$(find "$archive_path.xcarchive/Products" -name "${target}.framework" -type d -maxdepth 4 | head -1)"
+        if [ -z "$fw_path" ]; then
+            echo "Error: ${target}.framework not found inside xcarchive. Contents:" >&2
+            find "$archive_path.xcarchive/Products" -type d -maxdepth 3 >&2
             exit 1
         fi
 
