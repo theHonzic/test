@@ -161,6 +161,7 @@ if [ ! -f "$DIST_PACKAGE" ]; then
     exit 1
 fi
 cp "$DIST_PACKAGE" "$STAGE_DIR/Package.swift"
+cp "$ZIP_PATH"     "$STAGE_DIR/MinimalPackage.xcframework.zip"
 mkdir -p "$STAGE_DIR/Sources/MinimalPackageTarget"
 
 # Thin wrapper source: re-exports so `import MinimalPackage` works via the binary
@@ -211,7 +212,7 @@ echo ""
 echo "==> Step 6/6: Creating GitHub release..."
 
 gh release create "$VERSION" \
-    "$ZIP_PATH" \
+    "$STAGE_DIR/MinimalPackage.xcframework.zip" \
     --repo "$GITHUB_REPO" \
     --title "v${VERSION}" \
     --notes "$(cat <<EOF
