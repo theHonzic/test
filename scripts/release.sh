@@ -156,6 +156,10 @@ STAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGE_DIR"' EXIT
 
 # Copy only what belongs on main
+if [ ! -f "$DIST_PACKAGE" ]; then
+    echo "Error: Distribution Package.swift not found at $DIST_PACKAGE." >&2
+    exit 1
+fi
 cp "$DIST_PACKAGE" "$STAGE_DIR/Package.swift"
 mkdir -p "$STAGE_DIR/Sources/MinimalPackageTarget"
 
@@ -176,10 +180,14 @@ else
 fi
 
 # Replace working tree with staged content
-# Remove everything except .git
-find "$REPO_ROOT" -maxdepth 1 \
-    ! -name '.git' ! -name '.' ! -name '..' \
-    -exec rm -rf {} +
+# Remove everything except .git. 
+# Using -mindepth 1 and relative paths with cd is safer than absolute find.
+(
+    cd "$REPO_ROOT"
+    find . -mindepth 1 -maxdepth 1 \
+        ! -name '.git' \
+        -exec rm -rf {} +
+)
 
 cp -R "$STAGE_DIR/Package.swift" "$REPO_ROOT/Package.swift"
 cp -R "$STAGE_DIR/Sources"       "$REPO_ROOT/Sources"
