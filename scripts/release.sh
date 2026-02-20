@@ -172,6 +172,29 @@ SWIFTSRC
 # Copy generated docs
 cp -R "$REPO_ROOT/docs" "$STAGE_DIR/docs"
 
+# Fix DocC hosting on GitHub Pages
+touch "$STAGE_DIR/.nojekyll"
+touch "$STAGE_DIR/docs/.nojekyll"
+
+# Create a root index.html that redirects to the documentation.
+# This ensures that both root-hosting and /docs-hosting work.
+cat > "$STAGE_DIR/index.html" <<EOF
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <link rel="canonical" href="docs/documentation/minimalpackage">
+    <script>location="docs/documentation/minimalpackage"</script>
+    <meta http-equiv="refresh" content="0; url=docs/documentation/minimalpackage">
+  </head>
+  <body>
+    <h1>Redirecting...</h1>
+    <a href="docs/documentation/minimalpackage">Click here if you are not redirected.</a>
+  </body>
+</html>
+EOF
+
 # Switch to main (create orphan if it doesn't exist yet)
 if git -C "$REPO_ROOT" show-ref --verify --quiet refs/heads/main; then
     git -C "$REPO_ROOT" checkout main
@@ -193,6 +216,8 @@ fi
 cp -R "$STAGE_DIR/Package.swift" "$REPO_ROOT/Package.swift"
 cp -R "$STAGE_DIR/Sources"       "$REPO_ROOT/Sources"
 cp -R "$STAGE_DIR/docs"          "$REPO_ROOT/docs"
+cp "$STAGE_DIR/.nojekyll"        "$REPO_ROOT/.nojekyll"
+cp "$STAGE_DIR/index.html"       "$REPO_ROOT/index.html"
 
 # ── Step 5: Commit, tag, push ────────────────────────────────────────────────
 
