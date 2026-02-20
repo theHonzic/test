@@ -5,9 +5,11 @@
 # Generates DocC documentation for MinimalPackage and transforms it
 # into static HTML suitable for GitHub Pages.
 #
-# Output: <repo-root>/docs/
+# Usage:
+#   ./scripts/generate-docs.sh              Build static docs into docs/
+#   ./scripts/generate-docs.sh --preview    Start live-reload preview server
 #
-# Usage on GitHub Pages the site will be at:
+# GitHub Pages URL:
 #   https://<user>.github.io/<repo>/documentation/minimalpackage
 #
 # Requirements: Xcode 15+ (or Swift 5.9+ toolchain with DocC),
@@ -20,21 +22,39 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKAGE_DIR="$REPO_ROOT/minimal-package"
 DOCS_OUTPUT="$REPO_ROOT/docs"
 
+PREVIEW=false
+if [[ "${1:-}" == "--preview" ]]; then
+    PREVIEW=true
+fi
+
 # ── Preflight ────────────────────────────────────────────────────────────────
 
 command -v swift >/dev/null 2>&1 || { echo "Error: swift is not installed." >&2; exit 1; }
 
-# Derive the repo name from the git remote (used as hosting-base-path)
+# Derive the repo name from the git remote (used as hosting-base-path).
+# GitHub Pages serves /docs as the site root, so the base path is just the
+# repo name — NOT repo/docs.
 HOSTING_BASE_PATH="$(basename -s .git "$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)" 2>/dev/null || echo "test")"
 
 echo "==> Resolving package dependencies..."
 swift package --package-path "$PACKAGE_DIR" resolve
 
-# ── Clean previous output ────────────────────────────────────────────────────
+# ── Preview mode ─────────────────────────────────────────────────────────────
+
+if $PREVIEW; then
+    echo "==> Starting live preview server (Ctrl-C to stop)..."
+    echo "    Watching for changes in Sources/"
+    # --disable-sandbox is required because the preview server binds a port
+    swift package --package-path "$PACKAGE_DIR" \
+        --disable-sandbox \
+        preview-documentation \
+        --target MinimalPackage
+    exit 0
+fi
+
+# ── Build static site ───────────────────────────────────────────────────────
 
 rm -rf "$DOCS_OUTPUT"
-
-# ── Generate DocC site ───────────────────────────────────────────────────────
 
 echo "==> Generating DocC documentation for MinimalPackage..."
 echo "    hosting-base-path: /${HOSTING_BASE_PATH}"
@@ -55,4 +75,4 @@ swift package --package-path "$PACKAGE_DIR" \
 
 echo "==> Documentation written to $DOCS_OUTPUT"
 echo "    GitHub Pages URL: https://<user>.github.io/${HOSTING_BASE_PATH}/documentation/minimalpackage"
-echo "    Local preview:    python3 -m http.server -d \"$DOCS_OUTPUT\""
+echo "    Live preview:     $0 --preview"
