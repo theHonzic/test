@@ -42,17 +42,17 @@ let package = Package(
         ),
         .binaryTarget(
             name: "MinimalPackageBinary",
-            url: "https://github.com/theHonzic/test/releases/download/1.0.5/MinimalPackage.xcframework.zip",
-            checksum: "9438b1e3631d21f9ef735de88dcb294eb560ae3874c79aea9b134def41a9ec7e"
+            url: "https://github.com/theHonzic/test/releases/download/1.0.7/MinimalPackage.xcframework.zip",
+            checksum: "7e1779723ab94198eff6454892ba75167b8da6e8d19b33b070f02e6b9f732124"
         ),
         .binaryTarget(
             name: "MinimalPackageCoreBinary",
-            url: "https://github.com/theHonzic/test/releases/download/1.0.5/MinimalPackageCore.xcframework.zip",
+            url: "https://github.com/theHonzic/test/releases/download/1.0.7/MinimalPackageCore.xcframework.zip",
             checksum: "PLACEHOLDER_CORE"
         ),
         .binaryTarget(
             name: "MinimalPackageFeatureBinary",
-            url: "https://github.com/theHonzic/test/releases/download/1.0.5/MinimalPackageFeature.xcframework.zip",
+            url: "https://github.com/theHonzic/test/releases/download/1.0.7/MinimalPackageFeature.xcframework.zip",
             checksum: "PLACEHOLDER_FEATURE"
         ),
     ]
