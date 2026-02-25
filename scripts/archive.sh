@@ -75,7 +75,6 @@ for target in "${TARGETS[@]}"; do
             -derivedDataPath "$DERIVED_DATA" \
             -clonedSourcePackagesDirPath "$DERIVED_DATA/SourcePackages" \
             SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
             2>&1 | tail -3
 
