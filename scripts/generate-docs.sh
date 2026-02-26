@@ -87,6 +87,24 @@ swift package --package-path "$PACKAGE_DIR" \
     --output-path "$DOCS_OUTPUT"
 
 echo "==> Documentation written to $DOCS_OUTPUT"
+
+# Create a redirect index.html in the output directory.
+# This ensures that visiting the root of the docs hosting (e.g. the GitHub Pages 
+# root or the local server root) redirects to the actual documentation.
+cat > "$DOCS_OUTPUT/index.html" <<EOF
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <link rel="canonical" href="documentation/minimalpackage">
+    <script>location="documentation/minimalpackage"</script>
+    <meta http-equiv="refresh" content="0; url=documentation/minimalpackage">
+  </head>
+</html>
+EOF
+echo "==> Created redirect: $DOCS_OUTPUT/index.html"
+
 echo "    GitHub Pages URL: https://<user>.github.io/${HOSTING_BASE_PATH}/documentation/minimalpackage"
 echo "    Live preview:     $0 --preview"
 echo "    Local server:     $0 --serve"
