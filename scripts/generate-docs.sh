@@ -97,9 +97,9 @@ cat > "$DOCS_OUTPUT/index.html" <<EOF
   <head>
     <meta charset="utf-8">
     <title>Redirecting...</title>
-    <link rel="canonical" href="documentation/minimalpackage">
-    <script>location="documentation/minimalpackage"</script>
-    <meta http-equiv="refresh" content="0; url=documentation/minimalpackage">
+    <link rel="canonical" href="documentation/">
+    <script>location="documentation/"</script>
+    <meta http-equiv="refresh" content="0; url=documentation/">
   </head>
 </html>
 EOF
