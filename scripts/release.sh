@@ -89,72 +89,38 @@ echo ""
 echo "==> Step 3/6: Preparing distribution Package.swift..."
 
 DIST_PACKAGE="$BUILD_DIR/Package.swift"
-cat > "$DIST_PACKAGE" <<SWIFT
-// swift-tools-version: 6.2
+# Use envsubst to process the template
+export DOWNLOAD_URL CHECKSUM PUBLIC_REPO VERSION
+envsubst < "$SCRIPT_DIR/templates/Package.swift.template" > "$DIST_PACKAGE"
 
-import PackageDescription
-
-let package = Package(
-    name: "MinimalPackage",
-    platforms: [
-        .macOS(.v10_15),
-        .iOS(.v13)
-    ],
-    products: [
-        .library(
-            name: "MinimalPackage",
-            targets: ["MinimalPackageTarget"]
-        ),
-    ],
-    dependencies: [
-        // External runtime dependencies required by the binary
-        .package(url: "https://github.com/airbnb/lottie-spm.git", .upToNextMajor(from: "4.5.2")),
-        .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
-        .package(url: "https://github.com/apple/swift-openapi-runtime.git", .upToNextMajor(from: "1.8.3")),
-        .package(url: "https://github.com/apple/swift-openapi-urlsession.git", .upToNextMajor(from: "1.2.0")),
-        .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
-        .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.40.0"),
-    ],
-    targets: [
-        // Thin wrapper that links the binary frameworks and their runtime deps
-        .target(
-            name: "MinimalPackageTarget",
-            dependencies: [
-                "MinimalPackageBinary",
-                "MinimalPackageCoreBinary",
-                "MinimalPackageFeatureBinary",
-                .product(name: "Lottie", package: "lottie-spm"),
-                .product(name: "QRCode", package: "qrcode"),
-                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
-                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
-                .product(name: "KeychainSwift", package: "keychain-swift"),
-                .product(name: "Sentry", package: "sentry-cocoa"),
-            ],
-            path: "Sources/MinimalPackageTarget"
-        ),
-        .binaryTarget(
-            name: "MinimalPackageBinary",
-            url: "$DOWNLOAD_URL",
-            checksum: "$CHECKSUM"
-        ),
-        .binaryTarget(
-            name: "MinimalPackageCoreBinary",
-            url: "https://github.com/${PUBLIC_REPO}/releases/download/${VERSION}/MinimalPackageCore.xcframework.zip",
-            checksum: "PLACEHOLDER_CORE"
-        ),
-        .binaryTarget(
-            name: "MinimalPackageFeatureBinary",
-            url: "https://github.com/${PUBLIC_REPO}/releases/download/${VERSION}/MinimalPackageFeature.xcframework.zip",
-            checksum: "PLACEHOLDER_FEATURE"
-        ),
-    ]
-)
-SWIFT
-
-# ── Step 4: Assemble public branch content ──────────────────────────────────
+# ── Step 4: Sync internal repository ──────────────────────────────────────────
 
 echo ""
-echo "==> Step 4/6: Assembling public branch content..."
+echo "==> Step 4/6: Syncing internal repository..."
+
+# 1. Tag the source code state locally
+echo "    Tagging v${VERSION}..."
+git -C "$REPO_ROOT" tag -a "$VERSION" -m "Release $VERSION"
+
+# 2. Push source + tag to internal repo (origin)
+echo "    Pushing ${SOURCE_BRANCH} and tag ${VERSION} to origin..."
+git -C "$REPO_ROOT" push origin "$SOURCE_BRANCH"
+git -C "$REPO_ROOT" push origin "$VERSION"
+
+# 3. Update internal main via merge
+echo "    Merging ${SOURCE_BRANCH} into main..."
+git -C "$REPO_ROOT" checkout main
+git -C "$REPO_ROOT" pull origin main --rebase
+git -C "$REPO_ROOT" merge "$SOURCE_BRANCH" --no-ff -m "Release $VERSION"
+git -C "$REPO_ROOT" push origin main
+
+# Return to source branch
+git -C "$REPO_ROOT" checkout "$SOURCE_BRANCH"
+
+# ── Step 5: Assemble and push public distribution ────────────────────────────
+
+echo ""
+echo "==> Step 5/6: Assembling and pushing public distribution..."
 
 # Work in a temporary directory
 STAGE_DIR="$(mktemp -d)"
@@ -171,22 +137,8 @@ cp -R "$REPO_ROOT/docs" "$STAGE_DIR/docs"
 touch "$STAGE_DIR/.nojekyll"
 touch "$STAGE_DIR/docs/.nojekyll"
 
-cat > "$STAGE_DIR/index.html" <<EOF
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Redirecting...</title>
-    <link rel="canonical" href="docs/documentation/minimalpackage">
-    <script>location="docs/documentation/minimalpackage"</script>
-    <meta http-equiv="refresh" content="0; url=docs/documentation/minimalpackage">
-  </head>
-  <body>
-    <h1>Redirecting...</h1>
-    <a href="docs/documentation/minimalpackage">Click here if you are not redirected.</a>
-  </body>
-</html>
-EOF
+# Use envsubst to process the redirection template
+envsubst < "$SCRIPT_DIR/templates/index.html.template" > "$STAGE_DIR/index.html"
 
 # Use a temporary branch for the public push
 TEMP_RELEASE_BRANCH="temp-public-release-${VERSION}"
@@ -200,22 +152,11 @@ git -C "$REPO_ROOT" checkout -b "$TEMP_RELEASE_BRANCH"
 
 cp -R "$STAGE_DIR/"* "$REPO_ROOT/"
 
-# ── Step 5: Committing and Pushing ───────────────────────────────────────────
-
-echo ""
-echo "==> Step 5/6: Committing and pushing..."
-
 git -C "$REPO_ROOT" add -A
-git -C "$REPO_ROOT" commit -m "v${VERSION}"
+git -C "$REPO_ROOT" commit -m "v${VERSION} (distribution)"
 
-# 1. Tag locally (on the source code state)
-git -C "$REPO_ROOT" tag -a "$VERSION" -m "Release $VERSION"
-
-# 2. Push source + tag to internal repo (origin)
-git -C "$REPO_ROOT" push origin "$SOURCE_BRANCH"
-git -C "$REPO_ROOT" push origin "$VERSION"
-
-# 3. Force push the "clean" state to public repo main
+# Force push the "clean" state to public repo main
+echo "    Pushing clean state to public/main..."
 git -C "$REPO_ROOT" push "$PUBLIC_REMOTE" "${TEMP_RELEASE_BRANCH}:main" --force
 
 # ── Step 6: Create GitHub release (on Public Repo) ──────────────────────────
@@ -227,21 +168,7 @@ gh release create "$VERSION" \
     "$BUILD_DIR/MinimalPackage.xcframework.zip" \
     --repo "$PUBLIC_REPO" \
     --title "v${VERSION}" \
-    --generate-notes \
-    --notes "$(cat <<EOF
-### Installation (Swift Package Manager)
-
-Add to your \`Package.swift\`:
-
-\`\`\`swift
-dependencies: [
-    .package(url: "https://github.com/${PUBLIC_REPO}.git", from: "${VERSION}")
-]
-\`\`\`
-
----
-EOF
-)"
+    --generate-notes
 
 # Return to source branch and cleanup
 git -C "$REPO_ROOT" checkout "$SOURCE_BRANCH"
