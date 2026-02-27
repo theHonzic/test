@@ -43,7 +43,7 @@ let package = Package(
         .binaryTarget(
             name: "MinimalPackageBinary",
             url: "https://github.com/theHonzic/test/releases/download/2.0.2/MinimalPackage.xcframework.zip",
-            checksum: "87f6852fe1db85efef83fdeb663ab5a44cfd75a8fba139fecc92e780842e5fb6"
+            checksum: "ec7ba59f8bf4fc467dea7d18b2dda834870358e07b45415dcddbaced5f2c390f"
         ),
         .binaryTarget(
             name: "MinimalPackageCoreBinary",
