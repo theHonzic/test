@@ -50,11 +50,18 @@ if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
     exit 1
 fi
 
-# Derive GitHub owner/repo from the remote (works with HTTPS and SSH)
+# Derive internal repo details
 REMOTE_URL="$(git -C "$REPO_ROOT" remote get-url origin)"
 GITHUB_REPO="$(echo "$REMOTE_URL" | sed -E 's#.*[:/]([^/]+/[^/.]+)(\.git)?$#\1#')"
 
-echo "==> Releasing v${VERSION} for ${GITHUB_REPO}"
+# Public distribution repo
+PUBLIC_REMOTE="public"
+PUBLIC_REPO_URL="https://github.com/theHonzic/test-public.git"
+PUBLIC_REPO="theHonzic/test-public"
+
+echo "==> Releasing v${VERSION}"
+echo "    Internal: ${GITHUB_REPO}"
+echo "    Public:   ${PUBLIC_REPO}"
 echo ""
 
 # Remember which branch we started on so we can return
@@ -73,12 +80,13 @@ bash "$SCRIPT_DIR/archive.sh"
 
 ZIP_PATH="$BUILD_DIR/MinimalPackage.xcframework.zip"
 CHECKSUM="$(cat "$ZIP_PATH.sha256")"
-DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/MinimalPackage.xcframework.zip"
+# Download URL points to the PUBLIC repo releases
+DOWNLOAD_URL="https://github.com/${PUBLIC_REPO}/releases/download/${VERSION}/MinimalPackage.xcframework.zip"
 
 # ── Step 3: Prepare distribution Package.swift ───────────────────────────────
 
 echo ""
-echo "==> Step 3/6: Preparing main branch..."
+echo "==> Step 3/6: Preparing distribution Package.swift..."
 
 DIST_PACKAGE="$BUILD_DIR/Package.swift"
 cat > "$DIST_PACKAGE" <<SWIFT
@@ -131,53 +139,38 @@ let package = Package(
         ),
         .binaryTarget(
             name: "MinimalPackageCoreBinary",
-            url: "https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/MinimalPackageCore.xcframework.zip",
+            url: "https://github.com/${PUBLIC_REPO}/releases/download/${VERSION}/MinimalPackageCore.xcframework.zip",
             checksum: "PLACEHOLDER_CORE"
         ),
         .binaryTarget(
             name: "MinimalPackageFeatureBinary",
-            url: "https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/MinimalPackageFeature.xcframework.zip",
+            url: "https://github.com/${PUBLIC_REPO}/releases/download/${VERSION}/MinimalPackageFeature.xcframework.zip",
             checksum: "PLACEHOLDER_FEATURE"
         ),
     ]
 )
 SWIFT
 
-# ── Step 4: Assemble main branch ────────────────────────────────────────────
+# ── Step 4: Assemble public branch content ──────────────────────────────────
 
 echo ""
-echo "==> Step 4/6: Assembling main branch content..."
+echo "==> Step 4/6: Assembling public branch content..."
 
-# Fetch latest state of main (may not exist yet)
-git -C "$REPO_ROOT" fetch origin main 2>/dev/null || true
-
-# Work in a temporary directory so we don't clobber anything
+# Work in a temporary directory
 STAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGE_DIR"' EXIT
 
-# Copy only what belongs on main
-if [ ! -f "$DIST_PACKAGE" ]; then
-    echo "Error: Distribution Package.swift not found at $DIST_PACKAGE." >&2
-    exit 1
-fi
 cp "$DIST_PACKAGE" "$STAGE_DIR/Package.swift"
-cp "$ZIP_PATH"     "$STAGE_DIR/MinimalPackage.xcframework.zip"
 mkdir -p "$STAGE_DIR/Sources/MinimalPackageTarget"
 
-# Thin wrapper source: re-exports so `import MinimalPackage` works via the binary
 cat > "$STAGE_DIR/Sources/MinimalPackageTarget/Exports.swift" <<'SWIFTSRC'
 @_exported import MinimalPackage
 SWIFTSRC
 
-# Copy generated docs
 cp -R "$REPO_ROOT/docs" "$STAGE_DIR/docs"
-
-# Fix DocC hosting on GitHub Pages
 touch "$STAGE_DIR/.nojekyll"
 touch "$STAGE_DIR/docs/.nojekyll"
 
-# Create a root index.html that redirects to the documentation.
-# This ensures that both root-hosting and /docs-hosting work.
 cat > "$STAGE_DIR/index.html" <<EOF
 <!DOCTYPE html>
 <html>
@@ -195,50 +188,44 @@ cat > "$STAGE_DIR/index.html" <<EOF
 </html>
 EOF
 
-# Switch to main (create orphan if it doesn't exist yet)
-if git -C "$REPO_ROOT" show-ref --verify --quiet refs/heads/main; then
-    git -C "$REPO_ROOT" checkout main
-else
-    git -C "$REPO_ROOT" checkout --orphan main
-    git -C "$REPO_ROOT" rm -rf . 2>/dev/null || true
-fi
+# Use a temporary branch for the public push
+TEMP_RELEASE_BRANCH="temp-public-release-${VERSION}"
+git -C "$REPO_ROOT" checkout -b "$TEMP_RELEASE_BRANCH"
 
-# Replace working tree with staged content
-# Remove everything except .git. 
-# Using -mindepth 1 and relative paths with cd is safer than absolute find.
+# Remove everything except .git
 (
     cd "$REPO_ROOT"
-    find . -mindepth 1 -maxdepth 1 \
-        ! -name '.git' \
-        -exec rm -rf {} +
+    find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 )
 
-cp -R "$STAGE_DIR/Package.swift" "$REPO_ROOT/Package.swift"
-cp -R "$STAGE_DIR/Sources"       "$REPO_ROOT/Sources"
-cp -R "$STAGE_DIR/docs"          "$REPO_ROOT/docs"
-cp "$STAGE_DIR/.nojekyll"        "$REPO_ROOT/.nojekyll"
-cp "$STAGE_DIR/index.html"       "$REPO_ROOT/index.html"
+cp -R "$STAGE_DIR/"* "$REPO_ROOT/"
 
-# ── Step 5: Commit, tag, push ────────────────────────────────────────────────
+# ── Step 5: Committing and Pushing ───────────────────────────────────────────
 
 echo ""
-echo "==> Step 5/6: Committing v${VERSION} and pushing..."
+echo "==> Step 5/6: Committing and pushing..."
 
 git -C "$REPO_ROOT" add -A
 git -C "$REPO_ROOT" commit -m "v${VERSION}"
+
+# 1. Tag locally (on the source code state)
 git -C "$REPO_ROOT" tag -a "$VERSION" -m "Release $VERSION"
 
-git -C "$REPO_ROOT" push -u origin main
+# 2. Push source + tag to internal repo (origin)
+git -C "$REPO_ROOT" push origin "$SOURCE_BRANCH"
 git -C "$REPO_ROOT" push origin "$VERSION"
 
-# ── Step 6: Create GitHub release ────────────────────────────────────────────
+# 3. Force push the "clean" state to public repo main
+git -C "$REPO_ROOT" push "$PUBLIC_REMOTE" "${TEMP_RELEASE_BRANCH}:main" --force
+
+# ── Step 6: Create GitHub release (on Public Repo) ──────────────────────────
 
 echo ""
-echo "==> Step 6/6: Creating GitHub release..."
+echo "==> Step 6/6: Creating GitHub release on ${PUBLIC_REPO}..."
 
 gh release create "$VERSION" \
-    "$STAGE_DIR/MinimalPackage.xcframework.zip" \
-    --repo "$GITHUB_REPO" \
+    "$BUILD_DIR/MinimalPackage.xcframework.zip" \
+    --repo "$PUBLIC_REPO" \
     --title "v${VERSION}" \
     --generate-notes \
     --notes "$(cat <<EOF
@@ -248,7 +235,7 @@ Add to your \`Package.swift\`:
 
 \`\`\`swift
 dependencies: [
-    .package(url: "https://github.com/${GITHUB_REPO}.git", from: "${VERSION}")
+    .package(url: "https://github.com/${PUBLIC_REPO}.git", from: "${VERSION}")
 ]
 \`\`\`
 
@@ -256,9 +243,11 @@ dependencies: [
 EOF
 )"
 
-# Return to the original branch
+# Return to source branch and cleanup
 git -C "$REPO_ROOT" checkout "$SOURCE_BRANCH"
+git -C "$REPO_ROOT" branch -D "$TEMP_RELEASE_BRANCH"
 
 echo ""
 echo "==> Release v${VERSION} complete!"
-echo "    https://github.com/${GITHUB_REPO}/releases/tag/${VERSION}"
+echo "    Internal: https://github.com/${GITHUB_REPO}"
+echo "    Public:   https://github.com/${PUBLIC_REPO}/releases/tag/${VERSION}"
