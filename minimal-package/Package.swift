@@ -7,12 +7,13 @@ let package = Package(
     name: "MinimalPackage",
     platforms: [
         .macOS(.v10_15),
-        .iOS(.v13)
+        .iOS(.v26)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "MinimalPackage",
+            type: .dynamic,
             targets: ["MinimalPackage"]
         ),
     ],
@@ -20,17 +21,20 @@ let package = Package(
         // UI
         .package(url: "https://github.com/airbnb/lottie-spm.git", .upToNextMajor(from: "4.5.2")),
         .package(url: "https://github.com/dagronf/qrcode.git", .upToNextMajor(from: "27.11.0")),
-        
+
         // OpenAPI
         .package(url: "https://github.com/apple/swift-openapi-generator.git", .upToNextMajor(from: "1.10.3")),
         .package(url: "https://github.com/apple/swift-openapi-runtime.git", .upToNextMajor(from: "1.8.3")),
         .package(url: "https://github.com/apple/swift-openapi-urlsession.git", .upToNextMajor(from: "1.2.0")),
-        
+
         // Persistence
         .package(url: "https://github.com/evgenyneu/keychain-swift.git", .upToNextMajor(from: "24.0.0")),
-        
+
         // Monitoring
         .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "8.40.0"),
+
+        // Documentation
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.4.3"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -41,14 +45,16 @@ let package = Package(
                 .target(name: "MinimalPackageCore"),
                 .target(name: "MinimalPackageFeature")
             ],
-            path: "Sources/MinimalPackage"
+            path: "Sources/MinimalPackage",
+            swiftSettings: [.unsafeFlags(["-enable-library-evolution"])]
         ),
         .target(
             name: "MinimalPackageCore",
             dependencies: [
                 .product(name: "Sentry", package: "sentry-cocoa")
             ],
-            path: "Sources/MinimalPackageCore"
+            path: "Sources/MinimalPackageCore",
+            swiftSettings: [.unsafeFlags(["-enable-library-evolution"])]
         ),
         .target(
             name: "MinimalPackageFeature",
@@ -60,7 +66,8 @@ let package = Package(
                 .product(name: "KeychainSwift", package: "keychain-swift"),
                 .target(name: "MinimalPackageCore")
             ],
-            path: "Sources/MinimalPackageFeature"
+            path: "Sources/MinimalPackageFeature",
+            swiftSettings: [.unsafeFlags(["-enable-library-evolution"])]
         ),
     ]
 )
