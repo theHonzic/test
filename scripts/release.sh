@@ -240,9 +240,8 @@ gh release create "$VERSION" \
     "$STAGE_DIR/MinimalPackage.xcframework.zip" \
     --repo "$GITHUB_REPO" \
     --title "v${VERSION}" \
+    --generate-notes \
     --notes "$(cat <<EOF
-## MinimalPackage v${VERSION}
-
 ### Installation (Swift Package Manager)
 
 Add to your \`Package.swift\`:
@@ -253,17 +252,7 @@ dependencies: [
 ]
 \`\`\`
 
-Then import in your code:
-
-\`\`\`swift
-import MinimalPackage
-\`\`\`
-
-### Checksums
-
-| Artifact | SHA-256 |
-|----------|---------|
-| MinimalPackage.xcframework.zip | \`${CHECKSUM}\` |
+---
 EOF
 )"
 
