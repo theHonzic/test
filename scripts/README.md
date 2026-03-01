@@ -42,9 +42,6 @@ Builds documentation using Swift DocC.
 # Build static site into docs/
 ./scripts/generate-docs.sh
 
-# Start a live-reload preview server
-./scripts/generate-docs.sh --preview
-
 # Build and serve locally (at http://localhost:8000)
 ./scripts/generate-docs.sh --serve
 ```

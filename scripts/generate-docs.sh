@@ -1,80 +1,166 @@
 #!/usr/bin/env bash
-#
+# =============================================================================
 # generate-docs.sh
+# =============================================================================
 #
-# Generates DocC documentation for MinimalPackage and transforms it
-# into static HTML suitable for GitHub Pages.
+# OVERVIEW
+# --------
+# Generates DocC documentation for the SDK and transforms it into a static
+# HTML site suitable for hosting on GitHub Pages.
 #
-# Usage:
+# The script supports two modes:
+#   - Default : Builds a static site into /docs at the repo root
+#   - Serve   : Builds static docs then serves them locally via python3,
+#               mirroring the GitHub Pages URL structure so internal asset
+#               paths resolve correctly
+#
+# DIRECTORY LAYOUT ASSUMED
+# ------------------------
+#   <repo-root>/
+#   ├── minimal-package/        ← Swift package lives here (Package.swift)
+#   │   └── Sources/
+#   ├── scripts/
+#   │   └── generate-docs.sh    ← this file
+#   ├── templates/
+#   │   └── index.html          ← redirect template (copied into docs/)
+#   └── docs/                   ← generated output (created / replaced each run)
+#
+# GITHUB PAGES SETUP
+# ------------------
+# In your repo settings set Pages source to:
+#   Branch: main   Folder: /docs
+#
+# The generated site will be reachable at:
+#   https://<user>.github.io/<repo>/documentation/
+#
+# The hosting-base-path is automatically derived from the git remote URL so
+# it always matches the repo name without any manual configuration.
+#
+# COMBINED DOCUMENTATION
+# ----------------------
+# --enable-experimental-combined-documentation merges the symbol graphs of
+# all listed targets into a single navigable site. Internal targets do NOT
+# need to be declared as products in Package.swift for this to work.
+#
+# TARGETS
+# -------
+# Targets are defined in the TARGETS array below. Add or remove entries to
+# control which modules appear in the generated documentation.
+#
+# REQUIREMENTS
+# ------------
+#   - Xcode 15+ or a Swift 5.9+ toolchain that includes DocC
+#   - swift-docc-plugin declared as a dependency in Package.swift:
+#       .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0")
+#   - python3 (only required for --serve mode)
+#   - git remote configured (only required for automatic base-path derivation)
+#
+# USAGE
+# -----
 #   ./scripts/generate-docs.sh              Build static docs into docs/
-#   ./scripts/generate-docs.sh --preview    Start live-reload preview server
 #   ./scripts/generate-docs.sh --serve      Build docs, then serve locally
+#   ./scripts/generate-docs.sh --serve 9000 Build docs, serve on port 9000
 #
-# GitHub Pages URL:
-#   https://<user>.github.io/<repo>/documentation/minimalpackage
-#
-# Requirements: Xcode 15+ (or Swift 5.9+ toolchain with DocC),
-#               swift-docc-plugin declared in Package.swift
+# =============================================================================
 
 set -euo pipefail
 
+# -----------------------------------------------------------------------------
+# Paths
+# -----------------------------------------------------------------------------
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PACKAGE_DIR="$REPO_ROOT/minimal-package"
+
+# Location of the Swift package (Package.swift lives here).
+PACKAGE_DIR="$HOME/minimal-package"
+
+# Where the static site will be written.
 DOCS_OUTPUT="$REPO_ROOT/docs"
 
-PREVIEW=false
+# Template directory — index.html is copied from here into the docs output.
+TEMPLATES_DIR="$REPO_ROOT/templates"
+
+# -----------------------------------------------------------------------------
+# Targets
+# Defines which Swift targets are included in the generated documentation.
+# Adjust this list to match the targets declared in your Package.swift.
+# -----------------------------------------------------------------------------
+
+TARGETS=(MinimalPackage MinimalPackageCore MinimalPackageFeature)
+
+# -----------------------------------------------------------------------------
+# Argument parsing
+# -----------------------------------------------------------------------------
+
 SERVE=false
-if [[ "${1:-}" == "--preview" ]]; then
-    PREVIEW=true
-elif [[ "${1:-}" == "--serve" ]]; then
+
+if [[ "${1:-}" == "--serve" ]]; then
     SERVE=true
 fi
 
-# ── Preflight ────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Preflight checks
+# -----------------------------------------------------------------------------
 
-command -v swift >/dev/null 2>&1 || { echo "Error: swift is not installed." >&2; exit 1; }
+# Ensure swift is available before attempting anything.
+command -v swift >/dev/null 2>&1 || {
+    echo "Error: swift is not installed or not on PATH." >&2
+    exit 1
+}
 
-# Derive the repo name from the git remote (used as hosting-base-path).
-# GitHub Pages serves /docs as the site root, so the base path is just the
-# repo name — NOT repo/docs.
-HOSTING_BASE_PATH="$(basename -s .git "$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)" 2>/dev/null || echo "test")"
+# Ensure the package directory exists.
+[[ -d "$PACKAGE_DIR" ]] || {
+    echo "Error: Package directory not found: $PACKAGE_DIR" >&2
+    exit 1
+}
+
+# Ensure the templates directory and index.html exist.
+[[ -f "$TEMPLATES_DIR/index.html" ]] || {
+    echo "Error: index.html template not found at $TEMPLATES_DIR/index.html" >&2
+    exit 1
+}
+
+# -----------------------------------------------------------------------------
+# Derive hosting base path from git remote.
+#
+# GitHub Pages serves a project site at https://<user>.github.io/<repo>/.
+# DocC's --hosting-base-path must match this repo name so that all internal
+# asset URLs resolve correctly both on Pages and in --serve mode.
+#
+# Falls back to "docs" if no git remote is configured (e.g. local testing
+# without a remote).
+# -----------------------------------------------------------------------------
+
+HOSTING_BASE_PATH="$(basename -s .git \
+    "$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)" \
+    2>/dev/null || echo "docs")"
+
+echo "==> Hosting base path: /${HOSTING_BASE_PATH}"
+
+# -----------------------------------------------------------------------------
+# Resolve package dependencies
+# -----------------------------------------------------------------------------
 
 echo "==> Resolving package dependencies..."
 swift package --package-path "$PACKAGE_DIR" resolve
 
-# ── Preview mode ─────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Build static documentation site
+# -----------------------------------------------------------------------------
 
-if $PREVIEW; then
-    echo "==> Starting live preview server (Ctrl-C to stop)..."
-    echo "    Watching for changes in Sources/"
-    # --disable-sandbox is required because the preview server binds a port.
-    # preview-documentation only supports a single --target, so we preview
-    # the umbrella target. For full combined docs, use the static build.
-    swift package --package-path "$PACKAGE_DIR" \
-        --disable-sandbox \
-        preview-documentation \
-        --target MinimalPackage
-    exit 0
-fi
-
-# ── Build static site ───────────────────────────────────────────────────────
-
+# Remove any previous output so the build is always clean.
 rm -rf "$DOCS_OUTPUT"
 
-# All targets whose documentation should be included.
-# Combined documentation merges symbol graphs from all targets into a single
-# navigable site. Internal targets (Core, Feature) do NOT need to be products.
-TARGETS=(MinimalPackage MinimalPackageCore MinimalPackageFeature)
-
+# Build --target flags from the TARGETS array.
 TARGET_FLAGS=()
 for t in "${TARGETS[@]}"; do
     TARGET_FLAGS+=(--target "$t")
 done
 
 echo "==> Generating combined DocC documentation..."
-echo "    targets: ${TARGETS[*]}"
-echo "    hosting-base-path: /${HOSTING_BASE_PATH}"
+echo "    Targets : ${TARGETS[*]}"
+echo "    Output  : $DOCS_OUTPUT"
 
 swift package --package-path "$PACKAGE_DIR" \
     --allow-writing-to-directory "$DOCS_OUTPUT" \
@@ -88,42 +174,51 @@ swift package --package-path "$PACKAGE_DIR" \
 
 echo "==> Documentation written to $DOCS_OUTPUT"
 
-# Create a redirect index.html in the output directory.
-# This ensures that visiting the root of the docs hosting (e.g. the GitHub Pages 
-# root or the local server root) redirects to the actual documentation.
-cat > "$DOCS_OUTPUT/index.html" <<EOF
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Redirecting...</title>
-    <link rel="canonical" href="documentation/">
-    <script>location="documentation/"</script>
-    <meta http-equiv="refresh" content="0; url=documentation/">
-  </head>
-</html>
-EOF
-echo "==> Created redirect: $DOCS_OUTPUT/index.html"
+# -----------------------------------------------------------------------------
+# Copy redirect index.html
+#
+# Copies the template from templates/index.html into the docs output root.
+# This ensures that visiting the bare GitHub Pages URL (or the local server
+# root) immediately redirects the browser to ./documentation/ without the
+# user needing to know the full path.
+# -----------------------------------------------------------------------------
 
-echo "    GitHub Pages URL: https://<user>.github.io/${HOSTING_BASE_PATH}/documentation/minimalpackage"
-echo "    Live preview:     $0 --preview"
-echo "    Local server:     $0 --serve"
+cp "$TEMPLATES_DIR/index.html" "$DOCS_OUTPUT/index.html"
+echo "==> Copied redirect index.html to $DOCS_OUTPUT/index.html"
 
-# ── Local server ─────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Summary
+# -----------------------------------------------------------------------------
+
+echo ""
+echo "==> Done."
+echo "    GitHub Pages URL : https://<user>.github.io/${HOSTING_BASE_PATH}/documentation/"
+echo "    Local server     : $0 --serve"
+
+# -----------------------------------------------------------------------------
+# Serve mode
+#
+# Builds docs (above) then starts a python3 HTTP server that mirrors the
+# GitHub Pages URL structure. This is necessary because DocC generates all
+# internal hrefs prefixed with /<HOSTING_BASE_PATH>/, so simply opening
+# docs/index.html directly in a browser will produce broken asset links.
+#
+# To replicate the Pages structure we:
+#   1. Create a temporary directory as the server root.
+#   2. Symlink docs/ into it under the base-path name.
+#   3. Serve the temp directory — URLs now match what Pages will serve.
+#   4. Remove the temp directory on exit via trap.
+# -----------------------------------------------------------------------------
 
 if $SERVE; then
     PORT="${2:-8000}"
 
-    # The static site's internal links use /<HOSTING_BASE_PATH>/... as the
-    # prefix (matching the GitHub Pages URL structure).  python3's http.server
-    # serves the given directory as "/", so we need to mount docs/ *under* the
-    # base-path directory so the URLs resolve correctly.
     SERVE_ROOT="$(mktemp -d)"
     ln -s "$DOCS_OUTPUT" "$SERVE_ROOT/$HOSTING_BASE_PATH"
     trap 'rm -rf "$SERVE_ROOT"' EXIT
 
     echo ""
-    echo "==> Starting local server on http://localhost:${PORT}/${HOSTING_BASE_PATH}/documentation/minimalpackage"
+    echo "==> Serving docs at http://localhost:${PORT}/${HOSTING_BASE_PATH}/documentation/"
     echo "    Ctrl-C to stop"
     python3 -m http.server "$PORT" -d "$SERVE_ROOT"
 fi
