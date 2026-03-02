@@ -20,9 +20,9 @@
 #   ├── minimal-package/        ← Swift package lives here (Package.swift)
 #   │   └── Sources/
 #   ├── scripts/
-#   │   └── generate-docs.sh    ← this file
-#   ├── templates/
-#   │   └── index.html          ← redirect template (copied into docs/)
+#   │   ├── generate-docs.sh    ← this file
+#   │   └── templates/
+#   │       └── index.html      ← redirect template (copied into docs/)
 #   └── docs/                   ← generated output (created / replaced each run)
 #
 # GITHUB PAGES SETUP
@@ -73,13 +73,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Location of the Swift package (Package.swift lives here).
-PACKAGE_DIR="$HOME/minimal-package"
+PACKAGE_DIR="$REPO_ROOT/minimal-package"
 
 # Where the static site will be written.
 DOCS_OUTPUT="$REPO_ROOT/docs"
 
 # Template directory — index.html is copied from here into the docs output.
-TEMPLATES_DIR="$REPO_ROOT/templates"
+TEMPLATES_DIR="$SCRIPT_DIR/templates"
 
 # -----------------------------------------------------------------------------
 # Targets

@@ -33,7 +33,7 @@ set -euo pipefail
 # Config
 # -----------------------------------------------------------------------------
 
-INTERNAL_REPO="janjanovec/test"
+INTERNAL_REPO="theHonzic/test"
 
 # -----------------------------------------------------------------------------
 # Paths
@@ -79,20 +79,26 @@ command -v gh >/dev/null 2>&1 || {
 }
 
 # -----------------------------------------------------------------------------
-# Push docs to internal repo
+# Push docs to gh-pages branch
 #
-# Stages the generated docs/ folder, commits it, and pushes to main.
-# GitHub Pages will pick up the changes automatically.
+# Force pushes the contents of docs/ as the root of the gh-pages branch.
+# No history is kept — each release replaces the previous cleanly.
+#
+# GitHub Pages must be configured to serve from:
+#   Branch: gh-pages   Folder: / (root)
 # -----------------------------------------------------------------------------
 
-echo "==> Pushing docs to $INTERNAL_REPO..."
+echo "==> Pushing docs to gh-pages branch on $INTERNAL_REPO..."
+
+touch "$DOCS_DIR/.nojekyll"
 
 cd "$REPO_ROOT"
-git add docs/
-git commit -m "docs: $TAG"
-git push origin main
+git add --force "$DOCS_DIR"
+TREE=$(git write-tree --prefix=docs/)
+COMMIT=$(git commit-tree "$TREE" -m "docs: $TAG")
+git push -f origin "$COMMIT:refs/heads/gh-pages"
 
-echo "==> Docs pushed"
+echo "==> Docs pushed to gh-pages"
 
 # -----------------------------------------------------------------------------
 # Create GitHub Release and upload artifact
