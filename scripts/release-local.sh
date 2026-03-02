@@ -55,4 +55,8 @@ echo "━━━ Step 3: Publish Internal ━━━"
 "$SCRIPT_DIR/publish-internal.sh" "$TAG"
 
 echo ""
+echo "━━━ Step 4: Publish Public ━━━"
+"$SCRIPT_DIR/publish-public.sh" "$TAG"
+
+echo ""
 echo "==> Release $TAG complete."
