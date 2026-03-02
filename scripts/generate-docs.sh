@@ -57,9 +57,10 @@
 #
 # USAGE
 # -----
-#   ./scripts/generate-docs.sh              Build static docs into docs/
-#   ./scripts/generate-docs.sh --serve      Build docs, then serve locally
-#   ./scripts/generate-docs.sh --serve 9000 Build docs, serve on port 9000
+#   ./scripts/generate-docs.sh                          Build static docs into docs/
+#   ./scripts/generate-docs.sh --base-path <name>       Override hosting base path
+#   ./scripts/generate-docs.sh --serve                  Build docs, then serve locally
+#   ./scripts/generate-docs.sh --serve 9000             Build docs, serve on port 9000
 #
 # =============================================================================
 
@@ -94,10 +95,23 @@ TARGETS=(MinimalPackage MinimalPackageCore MinimalPackageFeature)
 # -----------------------------------------------------------------------------
 
 SERVE=false
+CUSTOM_BASE_PATH=""
 
-if [[ "${1:-}" == "--serve" ]]; then
-    SERVE=true
-fi
+while [[ $# -gt 0 ]]; do
+    case "${1:-}" in
+        --base-path)
+            CUSTOM_BASE_PATH="${2:-}"
+            shift 2
+            ;;
+        --serve)
+            SERVE=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
 
 # -----------------------------------------------------------------------------
 # Preflight checks
@@ -132,9 +146,13 @@ command -v swift >/dev/null 2>&1 || {
 # without a remote).
 # -----------------------------------------------------------------------------
 
-HOSTING_BASE_PATH="$(basename -s .git \
-    "$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)" \
-    2>/dev/null || echo "docs")"
+if [[ -n "$CUSTOM_BASE_PATH" ]]; then
+    HOSTING_BASE_PATH="$CUSTOM_BASE_PATH"
+else
+    HOSTING_BASE_PATH="$(basename -s .git \
+        "$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)" \
+        2>/dev/null || echo "docs")"
+fi
 
 echo "==> Hosting base path: /${HOSTING_BASE_PATH}"
 

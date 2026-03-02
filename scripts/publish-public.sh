@@ -124,7 +124,7 @@ echo "==> Fetching release notes from $INTERNAL_REPO..."
 RELEASE_NOTES=$(gh release view "$TAG" \
     --repo "$INTERNAL_REPO" \
     --json body \
-    --jq '.body')
+    --jq '.body' | sed '/\*\*Full Changelog\*\*/d')
 
 echo "==> Release notes fetched"
 
@@ -157,6 +157,10 @@ echo "    Asset URL: $ASSET_URL"
 # Injects the asset URL and checksum into the Package.swift template.
 # Output is written to build/Package.swift.
 # -----------------------------------------------------------------------------
+
+echo ""
+echo "==> Generating docs with public base path..."
+"$SCRIPT_DIR/generate-docs.sh" --base-path "$(basename "$PUBLIC_REPO")"
 
 echo ""
 echo "==> Generating Package.swift..."
